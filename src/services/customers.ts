@@ -66,7 +66,11 @@ export async function listCustomers(
       .orderBy([{ column: 'created_at', order: 'desc' }, { column: 'id', order: 'desc' }])
       .limit(pagination.page_size)
       .offset(offsetOf(pagination))
-      .select('*'),
+      .select(
+        'customers.*',
+        // Shown on the list, so a customer filed from a paper contract is told apart.
+        db.raw('(select sum(contract_value) from paper_contracts p where p.customer_id = customers.id)::text as paper_contract_value'),
+      ),
     base.clone().count<{ count: string }[]>({ count: '*' }).first(),
   ]);
 

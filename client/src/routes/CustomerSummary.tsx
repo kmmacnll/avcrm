@@ -6,6 +6,7 @@ import {
   Copy,
   CreditCard,
   FilePlus2,
+  FileText,
   Info,
   Map as MapIcon,
   MapPinned,
@@ -58,6 +59,7 @@ import {
 } from '@/lib/agreements';
 import * as api from '@/lib/api';
 import { date, money, stamp } from '@/lib/format';
+import { openFile } from '@/lib/upload';
 import { useQuery } from '@/lib/useQuery';
 import { useSubmit } from '@/lib/useSubmit';
 import { cn } from '@/lib/utils';
@@ -127,7 +129,13 @@ export function CustomerSummary(): JSX.Element {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="max-w-full truncate rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground">
-              {active ? `${active.agreement} – Active` : customer.status === 'lead' ? 'Lead – no contract yet' : 'No active contract'}
+              {active
+                ? `${active.agreement} – Active`
+                : data.paper_contracts.length
+                  ? `Paper contract – ${money(data.paper_contracts[0]!.contract_value)}`
+                  : customer.status === 'lead'
+                    ? 'Lead – no contract yet'
+                    : 'No active contract'}
             </span>
             <Button asChild size="sm">
               <Link to={newContract}>
@@ -148,6 +156,8 @@ export function CustomerSummary(): JSX.Element {
             />
           </div>
         </header>
+
+        {data.paper_contracts.length ? <PaperContractsCard summary={data} onChanged={reload} /> : null}
 
         <ServiceAddressCard summary={data} property={property} onPropertyChange={setPropertyId} onSaved={reload} />
 
@@ -542,6 +552,49 @@ function ContractsCard({ summary, newContract }: { summary: Summary; newContract
             },
           ]}
         />
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Contracts signed on paper and filed from the Customers page: the scan, and what it is worth. */
+function PaperContractsCard({ summary, onChanged }: { summary: Summary; onChanged: () => void }): JSX.Element {
+  const [error, setError] = React.useState<string | null>(null);
+  return (
+    <Card className="min-w-0">
+      <CardHeader>
+        <CardTitle>Paper contract{summary.paper_contracts.length === 1 ? '' : 's'}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2 text-sm">
+        <p className="text-muted-foreground">The address, dates and terms are on the PDF.</p>
+        {summary.paper_contracts.map((p) => (
+          <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
+            <button
+              type="button"
+              className="flex min-w-0 items-center gap-2 text-left text-primary hover:underline"
+              onClick={() => {
+                setError(null);
+                openFile(p.pdf_key, p.file_name ?? 'paper-contract.pdf').catch((err: unknown) =>
+                  setError(err instanceof Error ? err.message : String(err)),
+                );
+              }}
+            >
+              <FileText className="size-4 shrink-0" />
+              <span className="truncate">{p.file_name ?? 'Paper contract'}</span>
+            </button>
+            <div className="flex items-center gap-3">
+              <span className="font-semibold tabular-nums">{money(p.contract_value)}</span>
+              <span className="text-xs text-muted-foreground">filed {stamp(p.created_at)}</span>
+              <ConfirmDelete
+                what="this paper contract (the customer stays)"
+                size="sm"
+                onConfirm={() => api.del(`/customers/paper-contracts/${p.id}`)}
+                onDeleted={onChanged}
+              />
+            </div>
+          </div>
+        ))}
+        {error ? <ErrorNotice message={error} /> : null}
       </CardContent>
     </Card>
   );

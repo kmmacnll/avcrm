@@ -48,6 +48,8 @@ export interface CustomerSummary {
   payment_method: { brand: string | null; last4: string; provider: string | null } | null;
   sms_assigned_to: { id: string; name: string } | null;
   branch: { id: string; name: string; province: string; default_trigger_cm: string };
+  /** Contracts signed on paper and filed with just the scan and the value. */
+  paper_contracts: { id: string; pdf_key: string; file_name: string | null; contract_value: string; created_at: string }[];
 }
 
 export interface AgreementFormValues {
