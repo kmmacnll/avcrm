@@ -61,10 +61,11 @@ const RULES: Record<UploadPurpose, PurposeRule> = {
     contentTypes: ['application/pdf', 'image/jpeg', 'image/png'],
     maxBytes: 10 * 1024 * 1024,
   },
+  // A signed agreement, or a paper contract scanned on a phone, page by page.
   contract_pdf: {
     prefix: 'contracts',
     contentTypes: ['application/pdf'],
-    maxBytes: 10 * 1024 * 1024,
+    maxBytes: 25 * 1024 * 1024,
   },
   invoice_pdf: {
     prefix: 'invoices',

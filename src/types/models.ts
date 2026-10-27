@@ -287,6 +287,22 @@ export interface Branch {
   updated_at: Date;
 }
 
+/**
+ * A paper contract filed from the Customers page: just the scan and what it
+ * is worth. The address, dates and terms are on the PDF.
+ */
+export interface PaperContract {
+  id: string;
+  customer_id: string;
+  branch_id: string;
+  pdf_key: string;
+  file_name: string | null;
+  /** numeric — money is a string all the way through. */
+  contract_value: string;
+  uploaded_by_user_id: string | null;
+  created_at: Date;
+}
+
 export interface User {
   id: string;
   branch_id: string | null;

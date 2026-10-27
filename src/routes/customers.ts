@@ -29,6 +29,7 @@ import {
   listCustomers,
   updateCustomer,
 } from '../services/customers';
+import { createPaperContract, deletePaperContract } from '../services/paperContracts';
 import { listProperties } from '../services/properties';
 import { CUSTOMER_STATUSES, PREFERRED_CONTACTS } from '../types/models';
 import { asyncHandler } from '../utils/async';
@@ -137,6 +138,40 @@ customersRouter.get(
     await getCustomer(id, scope);
 
     res.json(await listProperties(scope, { customer_id: id }, query));
+  }),
+);
+
+const paperContractSchema = z.object({
+  branch_id: z.string().uuid().optional(),
+  customer_name: z.string().trim().min(1, 'Enter the customer’s name').max(200),
+  /** Dollars in, whole cents out. */
+  contract_value: z.coerce
+    .number({ invalid_type_error: 'must be an amount' })
+    .positive('must be more than zero')
+    .max(10_000_000)
+    .transform((v) => Math.round(v * 100)),
+  pdf_key: z.string().trim().min(1).max(300),
+});
+
+/** A paper contract in one step: the name, the scan and the value. The customer is made from it. */
+customersRouter.post(
+  '/paper-contracts',
+  asyncHandler(async (req, res) => {
+    const body = parse(paperContractSchema, req.body);
+    if (!req.user) throw unauthorized();
+    const branchId = resolveWriteBranch(req, body.branch_id);
+    res.status(201).json({
+      data: await createPaperContract(req.user, resolveActor(req), { ...body, branch_id: branchId }),
+    });
+  }),
+);
+
+customersRouter.delete(
+  '/paper-contracts/:id',
+  asyncHandler(async (req, res) => {
+    const { id } = parse(idParamSchema, req.params);
+    await deletePaperContract(id, resolveActor(req), resolveBranchScope(req));
+    res.status(204).end();
   }),
 );
 

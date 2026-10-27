@@ -3,13 +3,14 @@ import type { Knex } from 'knex';
 import { config } from '../config';
 import { db as defaultDb } from '../db/client';
 import type { BranchScope } from '../types/auth';
-import type { Customer, CustomerNote, CustomerPhone, Property } from '../types/models';
+import type { Customer, CustomerNote, CustomerPhone, PaperContract, Property } from '../types/models';
 import { centsToDecimal, toCents, type NoteKind, type PhoneType } from '../types/serviceAgreement';
 import { badRequest, conflict, notFound, unauthorized } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { offsetOf, paginated, type Paginated, type Pagination } from '../utils/pagination';
 import { isPgError, PG_CHECK_VIOLATION } from '../utils/pg';
 import { applyBranchScope } from '../utils/scope';
+import { listPaperContracts } from './paperContracts';
 import { recordAudit, type AuditActor } from './audit';
 import { creditBalance } from './credits';
 
@@ -56,6 +57,8 @@ export interface CustomerSummary {
   payment_method: { brand: string | null; last4: string; provider: string | null } | null;
   sms_assigned_to: { id: string; name: string } | null;
   branch: { id: string; name: string; province: string; default_trigger_cm: string };
+  /** Contracts signed on paper and filed with just the scan and the value. */
+  paper_contracts: PaperContract[];
 }
 
 export async function getCustomerSummary(id: string, scope: BranchScope, db: Knex = defaultDb): Promise<CustomerSummary> {
@@ -197,6 +200,7 @@ export async function getCustomerSummary(id: string, scope: BranchScope, db: Kne
       : null,
     sms_assigned_to: assignee ? { id: assignee.id, name: `${assignee.first_name} ${assignee.last_name}` } : null,
     branch,
+    paper_contracts: await listPaperContracts(id, db),
   };
 }
 
