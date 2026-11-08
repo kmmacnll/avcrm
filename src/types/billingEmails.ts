@@ -28,6 +28,19 @@ export const INVOICE_SENT_EMAIL = {
   ].join('\n'),
 };
 
+/**
+ * Regina's own invoice email: the same bill, with Carter's e-Transfer details
+ * as a section of their own under the payment note, where a customer looking
+ * for how to pay will see them. Installed as Regina's branch override.
+ */
+export const REGINA_INVOICE_SENT_EMAIL = {
+  subject: INVOICE_SENT_EMAIL.subject,
+  body: INVOICE_SENT_EMAIL.body.replace(
+    '{{payment_note}}\n',
+    ['{{payment_note}}', '', 'Pay by e-Transfer', '', 'For e-Transfer, send to 3065705877 or Carter.o@drift-ps.com.', ''].join('\n'),
+  ),
+};
+
 export const INVOICE_OVERDUE_EMAIL = {
   subject: 'Your {{address_line1}} invoice is past due',
   body: [

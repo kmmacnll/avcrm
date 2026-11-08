@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { LOGO_PATH, renderEmailHtml } from '../src/services/emailLayout';
+import { REGINA_INVOICE_SENT_EMAIL } from '../src/types/billingEmails';
 import { QUOTE_EMAIL } from '../src/types/quoteEmail';
 
 describe('the branded email layout', () => {
@@ -58,5 +59,10 @@ describe('the branded email layout', () => {
     assert.match(html, /<td[^>]*>Your price<\/td>/);
     assert.match(html, /<h2[^>]*>Your quote<\/h2>/);
     assert.match(html, />Review and accept your quote<\/a>/);
+  });
+
+  it('gives Regina’s invoice its e-Transfer details under their own heading', () => {
+    const html = render(REGINA_INVOICE_SENT_EMAIL.body);
+    assert.match(html, /<h2[^>]*>Pay by e-Transfer<\/h2>\s*<p[^>]*>For e-Transfer, send to 3065705877 or Carter\.o@drift-ps\.com\.<\/p>/);
   });
 });
