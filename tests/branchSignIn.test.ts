@@ -4,6 +4,8 @@ import { db } from './helpers/database';
 import { harness } from './helpers/harness';
 import { makeContract, makeCustomer, PASSWORD } from './helpers/fixtures';
 import { call, login } from './helpers/server';
+import { installAppConfig } from '../src/db/appConfig';
+import { templateFor } from '../src/services/messages';
 
 let n = 0;
 /** The agreement as a rep fills it in, with a fresh address each time. */
@@ -37,6 +39,18 @@ describe('signing in by branch', () => {
     assert.equal(reply.status, 200, JSON.stringify(reply.body));
     return reply.body.data.token as string;
   }
+
+  it('gives Regina its own invoice email with Carter’s e-Transfer details', async () => {
+    await installAppConfig(db);
+    const regina = (await db('branches').where({ name: 'Regina' }).first('id'))!;
+    const kingston = (await db('branches').where({ name: 'Kingston' }).first('id'))!;
+    const own = await templateFor('invoice_sent', 'email', regina.id, db);
+    assert.equal(own.branch_id, regina.id);
+    assert.match(own.body, /For e-Transfer, send to 3065705877 or Carter\.o@drift-ps\.com\./);
+    const other = await templateFor('invoice_sent', 'email', kingston.id, db);
+    assert.equal(other.branch_id, null);
+    assert.doesNotMatch(other.body, /e-Transfer, send to/);
+  });
 
   it('starts Regina’s agreements at 2 cm and the other branches at 5 cm', async () => {
     for (const choice of ['Regina', 'Kingston', 'Cranbrook', 'Alberta']) await branchToken(choice);

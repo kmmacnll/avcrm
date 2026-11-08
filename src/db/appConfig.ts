@@ -6,6 +6,7 @@ import {
   INVOICE_SENT_EMAIL,
   PAYMENT_RECEIPT_EMAIL,
   PAYMENT_RECEIPT_SMS,
+  REGINA_INVOICE_SENT_EMAIL,
 } from '../types/billingEmails';
 import { QUOTE_EMAIL } from '../types/quoteEmail';
 import type {
@@ -442,10 +443,23 @@ export async function installAppConfig(knex: Knex): Promise<ConfigInstalled> {
     .ignore()
     .returning('code');
 
+  // A branch's own wording, where it has asked for it. Added once, and left
+  // alone after, the same as the global rows.
+  const regina = (await knex('branches').whereRaw('lower(name) = ?', ['regina']).first('id')) as
+    | { id: string }
+    | undefined;
+  const branchTemplates = regina
+    ? await knex('message_templates')
+        .insert({ code: 'invoice_sent', channel: 'email', branch_id: regina.id, ...REGINA_INVOICE_SENT_EMAIL })
+        .onConflict(knex.raw('(code, channel, branch_id) where branch_id is not null'))
+        .ignore()
+        .returning('code')
+    : [];
+
   return {
     branches,
     document_requirements: docs.length,
     checklist_requirements: checklist.length,
-    message_templates: templates.length,
+    message_templates: templates.length + branchTemplates.length,
   };
 }
