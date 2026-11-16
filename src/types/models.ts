@@ -299,6 +299,8 @@ export interface PaperContract {
   file_name: string | null;
   /** numeric — money is a string all the way through. */
   contract_value: string;
+  /** Null on paper contracts filed before the form asked. */
+  payment_type: PaymentType | null;
   uploaded_by_user_id: string | null;
   created_at: Date;
 }
