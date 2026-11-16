@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { FileUp } from 'lucide-react';
 import { CUSTOMER_STATUSES, PREFERRED_CONTACTS } from '../../../src/types/models';
 import type { Branch, Customer } from '../../../src/types/models';
+import { PAYMENT_TYPES, type PaymentType } from '../../../src/types/serviceAgreement';
+import { PaymentTypeChecks } from '@/components/PaymentTypeChecks';
 import { PageHeader } from '@/components/PageHeader';
 import { DataTable } from '@/components/DataTable';
 import { StatusPill } from '@/components/StatusPill';
@@ -174,12 +176,14 @@ function PaperContractDialog({
   const [value, setValue] = React.useState('');
   const [file, setFile] = React.useState<File | null>(null);
   const [branchId, setBranchId] = React.useState('');
+  const [paymentType, setPaymentType] = React.useState<PaymentType | null>(null);
   const created = React.useRef<string | null>(null);
   const { run, pending, error, clearError } = useSubmit(() => {
     const id = created.current;
     setName('');
     setValue('');
     setFile(null);
+    setPaymentType(null);
     if (id) onDone(id);
   });
 
@@ -191,6 +195,7 @@ function PaperContractDialog({
         customer_name: name.trim(),
         contract_value: value.replace(/[$,\s]/g, ''),
         pdf_key: pdfKey,
+        payment_type: paymentType,
         ...(showBranch ? { branch_id: branchId } : {}),
       });
       created.current = result.customer.id;
@@ -242,6 +247,10 @@ function PaperContractDialog({
               required
             />
           </div>
+          <div className="flex flex-col gap-1">
+            <Label>Payment type</Label>
+            <PaymentTypeChecks id="paper-payment" value={paymentType} options={PAYMENT_TYPES} onChange={setPaymentType} />
+          </div>
           {showBranch ? (
             <div className="flex flex-col gap-1">
               <Label htmlFor="paper-branch">Branch</Label>
@@ -264,7 +273,7 @@ function PaperContractDialog({
             <Button type="button" variant="secondary" disabled={pending} onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending || !name.trim() || !value.trim() || !file || (showBranch && !branchId)}>
+            <Button type="submit" disabled={pending || !name.trim() || !value.trim() || !file || !paymentType || (showBranch && !branchId)}>
               {pending ? 'Uploading…' : 'Add paper contract'}
             </Button>
           </div>

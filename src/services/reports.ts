@@ -2,6 +2,7 @@ import type { Knex } from 'knex';
 import { db as defaultDb } from '../db/client';
 import type { BranchScope } from '../types/auth';
 import { applyBranchScope } from '../utils/scope';
+import { CARD_BILLED_SQL } from './invoices';
 
 /**
  * Roll-up reporting. Corporate sees every branch, which is the cross-branch
@@ -308,10 +309,10 @@ async function revenueTotals(
       db.raw(`coalesce(sum(amount_due) filter (where status <> 'void'), 0) as invoiced`),
       db.raw(`coalesce(sum(amount_paid) filter (where status <> 'void'), 0) as collected`),
       db.raw(
-        `coalesce(sum(amount_due - amount_paid) filter (where status in ('sent', 'overdue')), 0) as outstanding`,
+        `coalesce(sum(amount_due - amount_paid) filter (where status in ('sent', 'overdue') and ${CARD_BILLED_SQL}), 0) as outstanding`,
       ),
       db.raw(
-        `coalesce(sum(amount_due - amount_paid) filter (where status = 'overdue'), 0) as overdue`,
+        `coalesce(sum(amount_due - amount_paid) filter (where status = 'overdue' and ${CARD_BILLED_SQL}), 0) as overdue`,
       ),
       db.raw(`count(*) filter (where status <> 'void') as invoices`),
     );
@@ -408,7 +409,7 @@ export async function monthlyRevenue(
       db.raw(`coalesce(sum(amount_due) filter (where invoices.status <> 'void'), 0) as invoiced`),
       db.raw(`coalesce(sum(amount_paid) filter (where invoices.status <> 'void'), 0) as collected`),
       db.raw(
-        `coalesce(sum(amount_due - amount_paid) filter (where invoices.status in ('sent', 'overdue')), 0) as outstanding`,
+        `coalesce(sum(amount_due - amount_paid) filter (where invoices.status in ('sent', 'overdue') and ${CARD_BILLED_SQL}), 0) as outstanding`,
       ),
       db.raw(`count(*) filter (where invoices.status <> 'void') as invoices`),
     )

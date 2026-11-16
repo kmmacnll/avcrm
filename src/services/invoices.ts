@@ -9,7 +9,7 @@ import { logger } from '../utils/logger';
 import { offsetOf, paginated, type Paginated, type Pagination } from '../utils/pagination';
 import { isPgError, PG_UNIQUE_VIOLATION } from '../utils/pg';
 import { applyBranchScope } from '../utils/scope';
-import { centsToDecimal, formatMoney, longDate, paymentSchedule, toCents } from '../types/serviceAgreement';
+import { CARD_PAYMENT_TYPES, centsToDecimal, formatMoney, longDate, paymentSchedule, toCents } from '../types/serviceAgreement';
 import { loadQuoteTerms, localDate, type QuoteTerms } from './agreementTerms';
 import { applyCredit, earnReferralCredit } from './credits';
 import { activeGateway } from './gateway';
@@ -297,11 +297,27 @@ async function raiseScheduledInvoices(
   return raised;
 }
 
+/**
+ * SQL that is true when the invoice (as table `invoices`) is billed
+ * automatically to a card on file. Only these invoices count toward
+ * "outstanding": an agreement paid by cheque, e-transfer, cash, other or in
+ * full up front (YIA) is collected by hand. An older agreement with no
+ * payment type keeps the card it always had, as takesCard() says.
+ */
+export const CARD_BILLED_SQL = `exists (
+  select 1 from contracts card_c
+    join quotes card_q on card_q.id = card_c.quote_id
+    left join billing_plans card_bp on card_bp.id = card_q.billing_plan_id
+  where card_c.id = invoices.contract_id
+    and coalesce(card_bp.kind, '') <> 'seasonal_yia'
+    and (card_q.payment_type is null or card_q.payment_type in (${CARD_PAYMENT_TYPES.map((t) => `'${t}'`).join(', ')}))
+)`;
+
 export interface InvoiceFilters {
   status?: InvoiceStatus;
   customer_id?: string;
   contract_id?: string;
-  /** Sent or overdue with money still outstanding. */
+  /** Sent or overdue with money still outstanding, on a card billed automatically. */
   outstanding?: boolean;
 }
 
@@ -317,7 +333,7 @@ export async function listInvoices(
   if (filters.customer_id) base.andWhere({ customer_id: filters.customer_id });
   if (filters.contract_id) base.andWhere({ contract_id: filters.contract_id });
   if (filters.outstanding) {
-    base.whereIn('status', ['sent', 'overdue']).andWhereRaw('amount_paid < amount_due');
+    base.whereIn('status', ['sent', 'overdue']).andWhereRaw('amount_paid < amount_due').andWhereRaw(CARD_BILLED_SQL);
   }
 
   const [rows, countRow] = await Promise.all([

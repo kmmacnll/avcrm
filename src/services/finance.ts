@@ -1,7 +1,7 @@
 import type { Knex } from 'knex';
 import { db as defaultDb } from '../db/client';
 import { EXPENSE_CATEGORY_INFO } from './expenses';
-import { billingPeriods, today } from './invoices';
+import { billingPeriods, CARD_BILLED_SQL, today } from './invoices';
 import {
   contractRevenueByMonth,
   roundCents,
@@ -115,10 +115,10 @@ export async function financialSummary(
           db.raw('coalesce(sum(amount_due), 0) as invoiced'),
           db.raw('coalesce(sum(amount_paid), 0) as collected'),
           db.raw(
-            `coalesce(sum(amount_due - amount_paid) filter (where status in ('sent', 'overdue')), 0) as outstanding`,
+            `coalesce(sum(amount_due - amount_paid) filter (where status in ('sent', 'overdue') and ${CARD_BILLED_SQL}), 0) as outstanding`,
           ),
           db.raw(
-            `coalesce(sum(amount_due - amount_paid) filter (where status = 'overdue'), 0) as overdue`,
+            `coalesce(sum(amount_due - amount_paid) filter (where status = 'overdue' and ${CARD_BILLED_SQL}), 0) as overdue`,
           ),
         ) as Promise<Record<string, string>[]>,
       expenses
