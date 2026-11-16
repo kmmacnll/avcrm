@@ -19,7 +19,7 @@ import {
   UserRoundCheck,
 } from 'lucide-react';
 import type { Invoice, MessageTemplate, Property } from '../../../src/types/models';
-import { PHONE_TYPES, type AgreementModel, type NoteKind, type PhoneType } from '../../../src/types/serviceAgreement';
+import { PAYMENT_TYPE_LABELS, PHONE_TYPES, type AgreementModel, type NoteKind, type PhoneType } from '../../../src/types/serviceAgreement';
 import { useAuth } from '@/auth/AuthContext';
 import { ConfirmDelete } from '@/components/ConfirmDelete';
 import { DataTable } from '@/components/DataTable';
@@ -584,6 +584,7 @@ function PaperContractsCard({ summary, onChanged }: { summary: Summary; onChange
             </button>
             <div className="flex items-center gap-3">
               <span className="font-semibold tabular-nums">{money(p.contract_value)}</span>
+              {p.payment_type ? <span className="text-xs text-muted-foreground">{PAYMENT_TYPE_LABELS[p.payment_type]}</span> : null}
               <span className="text-xs text-muted-foreground">filed {stamp(p.created_at)}</span>
               <ConfirmDelete
                 what="this paper contract (the customer stays)"

@@ -30,6 +30,7 @@ import {
   updateCustomer,
 } from '../services/customers';
 import { createPaperContract, deletePaperContract } from '../services/paperContracts';
+import { PAYMENT_TYPES } from '../types/serviceAgreement';
 import { listProperties } from '../services/properties';
 import { CUSTOMER_STATUSES, PREFERRED_CONTACTS } from '../types/models';
 import { asyncHandler } from '../utils/async';
@@ -151,6 +152,7 @@ const paperContractSchema = z.object({
     .max(10_000_000)
     .transform((v) => Math.round(v * 100)),
   pdf_key: z.string().trim().min(1).max(300),
+  payment_type: z.enum(PAYMENT_TYPES, { errorMap: () => ({ message: 'Tick how the customer pays' }) }),
 });
 
 /** A paper contract in one step: the name, the scan and the value. The customer is made from it. */

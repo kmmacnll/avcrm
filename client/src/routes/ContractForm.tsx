@@ -6,7 +6,6 @@ import {
   DEFAULT_TRIGGER_CM,
   defaultSeason,
   formatMoney,
-  PAYMENT_TYPE_LABELS,
   PAYMENT_TYPES,
   PricingError,
   toCents,
@@ -15,6 +14,7 @@ import {
 } from '../../../src/types/serviceAgreement';
 import { ErrorNotice, Loading } from '@/components/Misc';
 import { PageHeader } from '@/components/PageHeader';
+import { PaymentTypeChecks } from '@/components/PaymentTypeChecks';
 import { Section } from '@/components/Section';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -231,15 +231,7 @@ function Form({
             </div>
             <div className={field}>
               <Label>Payment Type</Label>
-              <Choice
-                value={values.payment_type ?? ''}
-                onChange={(v) => choosePayment(v as PaymentType)}
-                options={[
-                  ...(values.payment_type ? [] : [{ value: '', label: 'Choose how they pay' }]),
-                  ...paymentTypes.map((t) => ({ value: t, label: PAYMENT_TYPE_LABELS[t] })),
-                ]}
-                ariaLabel="Payment type"
-              />
+              <PaymentTypeChecks id="contract-payment" value={values.payment_type} options={paymentTypes} onChange={choosePayment} />
             </div>
             <div className={field}>
               <Label>Billing</Label>

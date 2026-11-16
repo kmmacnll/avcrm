@@ -2,6 +2,7 @@ import type { Knex } from 'knex';
 import { db as defaultDb } from '../db/client';
 import type { AuthenticatedUser, BranchScope } from '../types/auth';
 import type { Customer, PaperContract, Upload } from '../types/models';
+import type { PaymentType } from '../types/serviceAgreement';
 import { badRequest, notFound } from '../utils/errors';
 import { applyBranchScope } from '../utils/scope';
 import { recordAudit, type AuditActor } from './audit';
@@ -19,6 +20,8 @@ export interface PaperContractInput {
   /** Cents. */
   contract_value: number;
   pdf_key: string;
+  /** How the customer pays, ticked on the form. */
+  payment_type: PaymentType;
 }
 
 /** "Mary Anne Smith" → Mary Anne / Smith. One word is a first name with no last name. */
@@ -74,6 +77,7 @@ export async function createPaperContract(
         pdf_key: input.pdf_key,
         file_name: upload.file_name,
         contract_value: dollars(input.contract_value),
+        payment_type: input.payment_type,
         uploaded_by_user_id: user.id,
       })
       .returning('*')) as PaperContract[];

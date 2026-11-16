@@ -25,8 +25,9 @@ describe('paper contracts', () => {
     return target.body.data.key as string;
   }
 
+  /** Paid by e-transfer unless the test says otherwise. */
   async function file(token: string, body: Record<string, unknown>) {
-    return call(h.server(), 'POST', '/customers/paper-contracts', { token, body });
+    return call(h.server(), 'POST', '/customers/paper-contracts', { token, body: { payment_type: 'e_transfer', ...body } });
   }
 
   it('splits a name into first and last', () => {
@@ -37,7 +38,7 @@ describe('paper contracts', () => {
   it('files a customer from just a name, the PDF and the value', async () => {
     const token = await login(h.server(), h.world().emails.sales);
     const key = await uploadPdf(token);
-    const reply = await file(token, { customer_name: 'Jane Smith', contract_value: '1250.00', pdf_key: key });
+    const reply = await file(token, { customer_name: 'Jane Smith', contract_value: '1250.00', pdf_key: key, payment_type: 'cheque' });
     assert.equal(reply.status, 201, JSON.stringify(reply.body));
 
     const { customer, paper_contract } = reply.body.data;
@@ -50,6 +51,7 @@ describe('paper contracts', () => {
     assert.equal(paper_contract.contract_value, '1250.00');
     assert.equal(paper_contract.pdf_key, key);
     assert.equal(paper_contract.file_name, 'smith-contract.pdf');
+    assert.equal(paper_contract.payment_type, 'cheque');
 
     // Listed with the other customers, marked as paper.
     const list = await call(h.server(), 'GET', '/customers?search=Smith', { token });
@@ -75,6 +77,8 @@ describe('paper contracts', () => {
     assert.equal(noValue.status, 400);
     const noName = await file(token, { customer_name: '  ', contract_value: 500, pdf_key: key, branch_id });
     assert.equal(noName.status, 400);
+    const noPayment = await file(token, { customer_name: 'Jane Smith', contract_value: 500, pdf_key: key, branch_id, payment_type: undefined });
+    assert.equal(noPayment.status, 400, 'how they pay is ticked on every paper contract');
 
     const receipt = await uploadPdf(token, 'receipt');
     const wrongKind = await file(token, { customer_name: 'Jane Smith', contract_value: 500, pdf_key: receipt, branch_id });

@@ -58,6 +58,26 @@ describe('the roll-up reports', () => {
     assert.equal(kingston.contracts.active, 1);
   });
 
+  it('counts only card-billed agreements as outstanding', async () => {
+    const { token, contract, invoiceId } = await trading();
+    for (const payment_type of ['e_transfer', 'cheque', 'cash', 'other']) {
+      await db('quotes').where({ id: contract.quote_id }).update({ payment_type });
+      const summary = await call(h.server(), 'GET', '/reports/branch-summary', { token });
+      const kingston = summary.body.data.find((r: { branch_name: string }) => r.branch_name === 'Kingston');
+      assert.equal(kingston.revenue.outstanding, '0.00', `${payment_type} is paid by hand`);
+      assert.equal(kingston.revenue.invoiced, '300.00', 'still invoiced');
+      const list = await call(h.server(), 'GET', '/invoices?outstanding=true', { token });
+      assert.ok(!list.body.data.some((i: { id: string }) => i.id === invoiceId), `${payment_type} is not listed as outstanding`);
+    }
+
+    await db('quotes').where({ id: contract.quote_id }).update({ payment_type: 'credit_card' });
+    const summary = await call(h.server(), 'GET', '/reports/branch-summary', { token });
+    const kingston = summary.body.data.find((r: { branch_name: string }) => r.branch_name === 'Kingston');
+    assert.equal(kingston.revenue.outstanding, '180.00');
+    const list = await call(h.server(), 'GET', '/invoices?outstanding=true', { token });
+    assert.ok(list.body.data.some((i: { id: string }) => i.id === invoiceId));
+  });
+
   it('buckets revenue by the month it was billed for', async () => {
     const { token } = await trading();
     const reply = await call(h.server(), 'GET', '/reports/revenue', { token });

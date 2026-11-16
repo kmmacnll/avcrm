@@ -25,7 +25,7 @@ export type TagKind = (typeof TAG_KINDS)[number];
  * a way of paying but a way of billing: YIA (Year In Advance) is the season
  * paid in full, so the agreement shows one payment and no monthly schedule.
  */
-export const PAYMENT_TYPES = ['credit_card', 'visa_debit', 'cheque', 'e_transfer', 'cash', 'yia'] as const;
+export const PAYMENT_TYPES = ['credit_card', 'visa_debit', 'cheque', 'e_transfer', 'cash', 'other', 'yia'] as const;
 export type PaymentType = (typeof PAYMENT_TYPES)[number];
 
 export const PAYMENT_TYPE_LABELS: Record<PaymentType, string> = {
@@ -34,6 +34,7 @@ export const PAYMENT_TYPE_LABELS: Record<PaymentType, string> = {
   cheque: 'Cheque',
   e_transfer: 'E-transfer',
   cash: 'Cash',
+  other: 'Other',
   yia: 'YIA (paid in full)',
 };
 
@@ -45,8 +46,15 @@ export const PAYMENT_TYPE_LABELS: Record<PaymentType, string> = {
  */
 export function takesCard(planKind: PlanKind, paymentType: PaymentType | null): boolean {
   if (planKind === 'seasonal_yia') return false;
-  return paymentType === null || paymentType === 'credit_card' || paymentType === 'visa_debit';
+  return paymentType === null || (CARD_PAYMENT_TYPES as readonly string[]).includes(paymentType);
 }
+
+/**
+ * The payment types charged automatically from a card on file. Only these
+ * count toward "outstanding": cheque, e-transfer, cash and other are paid by
+ * hand and are tracked outside the outstanding figure.
+ */
+export const CARD_PAYMENT_TYPES = ['credit_card', 'visa_debit'] as const satisfies readonly PaymentType[];
 
 export const PHONE_TYPES = ['mobile', 'home', 'work', 'other'] as const;
 export type PhoneType = (typeof PHONE_TYPES)[number];
