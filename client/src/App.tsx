@@ -37,6 +37,8 @@ import { CorporateOnly, RoleOnly } from '@/components/CorporateOnly';
 
 const SELLERS: UserRole[] = ['corporate', 'sales', 'branch'];
 const CREW: UserRole[] = ['corporate', 'operator', 'branch'];
+/** Corporate, and each branch for its own customers. */
+const BILLING: UserRole[] = ['corporate', 'branch'];
 const BUSINESS: UserRole[] = ['corporate', 'branch'];
 
 export default function App(): JSX.Element {
@@ -80,17 +82,17 @@ export default function App(): JSX.Element {
                 <Route
                   path="invoices"
                   element={
-                    <CorporateOnly message="Billing is corporate work. Your own visits are under Dispatch.">
+                    <RoleOnly roles={BILLING} title="Office only" message="Billing is the office's work. Your own visits are under Dispatch.">
                       <Invoices />
-                    </CorporateOnly>
+                    </RoleOnly>
                   }
                 />
                 <Route
                   path="invoices/:id"
                   element={
-                    <CorporateOnly message="Billing is corporate work. Your own visits are under Dispatch.">
+                    <RoleOnly roles={BILLING} title="Office only" message="Billing is the office's work. Your own visits are under Dispatch.">
                       <InvoiceDetail />
-                    </CorporateOnly>
+                    </RoleOnly>
                   }
                 />
 

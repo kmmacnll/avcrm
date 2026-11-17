@@ -240,6 +240,11 @@ dropdown offers **Cranbrook**, **Kingston**, **Alberta**, **Regina** and
 - **ADMIN** keeps the corporate accounts' own passwords: the password is
   checked against each active corporate account in turn, oldest first, and
   signs in as the one it matches.
+- **The ADMIN password opens every branch too**, so the owner can see a branch
+  exactly as it does without knowing its password. It signs in as the branch
+  (not as ADMIN), works alongside the branch's own password, and is recorded
+  in the audit log as `branch.signed_in_with_admin_password` with the admin's
+  account. No setting is needed: it is whatever the ADMIN password is.
 
 The response carries the branch as well as the user (`{ token, user, branch }`,
 `branch` null for ADMIN), and the client keeps it with the session.
