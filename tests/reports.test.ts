@@ -60,7 +60,7 @@ describe('the roll-up reports', () => {
 
   it('counts only card-billed agreements as outstanding', async () => {
     const { token, contract, invoiceId } = await trading();
-    for (const payment_type of ['e_transfer', 'cheque', 'cash', 'other']) {
+    for (const payment_type of ['e_transfer', 'cheque', 'cash', 'other'] as const) {
       await db('quotes').where({ id: contract.quote_id }).update({ payment_type });
       const summary = await call(h.server(), 'GET', '/reports/branch-summary', { token });
       const kingston = summary.body.data.find((r: { branch_name: string }) => r.branch_name === 'Kingston');
