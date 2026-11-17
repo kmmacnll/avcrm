@@ -5,6 +5,7 @@ import { INVOICE_SENT_EMAIL, PAYMENT_RECEIPT_EMAIL } from '../src/types/billingE
 import { harness } from './helpers/harness';
 import { makeContract } from './helpers/fixtures';
 import { call, login } from './helpers/server';
+import { hashPassword } from '../src/services/auth';
 import { addMonths, billingPeriods } from '../src/services/invoices';
 
 describe('splitting a season into periods', () => {
@@ -284,5 +285,93 @@ describe('invoices and what can be done to them', () => {
       },
     });
     assert.equal(reply.status, 403);
+  });
+
+  describe('from a branch sign-in', () => {
+    /** A branch account for Kingston, as the sign-in screen makes one. */
+    async function branchLogin(): Promise<string> {
+      const world = h.world();
+      const email = `kingston.branch.${Date.now()}@test.local`;
+      await db('users').insert({
+        email,
+        password_hash: await hashPassword('Password123!'),
+        first_name: 'Kingston',
+        last_name: 'Branch',
+        role: 'branch',
+        branch_id: world.branches.kingston,
+        onboarding_status: 'approved',
+      });
+      return login(h.server(), email);
+    }
+
+    async function sentInvoice() {
+      const { token, invoice } = await draft();
+      await call(h.server(), 'POST', `/invoices/${invoice.id}/send`, { token });
+      return invoice as { id: string };
+    }
+
+    it('resends its own customer\u2019s invoice', async () => {
+      const invoice = await sentInvoice();
+      const branch = await branchLogin();
+      const reply = await call(h.server(), 'POST', `/invoices/${invoice.id}/email`, { token: branch, body: {} });
+      assert.equal(reply.status, 201, JSON.stringify(reply.body));
+      assert.equal(reply.body.data.template_code, 'invoice_sent');
+    });
+
+    it('marks an invoice paid by e-Transfer, cheque or cash', async () => {
+      const invoice = await sentInvoice();
+      const branch = await branchLogin();
+      const half = await call(h.server(), 'POST', `/invoices/${invoice.id}/payments`, {
+        token: branch,
+        body: { amount: 49.5, method: 'cash' },
+      });
+      assert.equal(half.status, 201, JSON.stringify(half.body));
+      const rest = await call(h.server(), 'POST', `/invoices/${invoice.id}/payments`, {
+        token: branch,
+        body: { amount: 100, method: 'etransfer' },
+      });
+      assert.equal(rest.status, 201, JSON.stringify(rest.body));
+      const after = await call(h.server(), 'GET', `/invoices/${invoice.id}`, { token: branch });
+      assert.equal(after.body.data.status, 'paid');
+      assert.equal(after.body.data.amount_paid, '149.50');
+    });
+
+    it('cannot book a card payment, a failure, or more than is owing', async () => {
+      const invoice = await sentInvoice();
+      const branch = await branchLogin();
+      const pay = (body: Record<string, unknown>) =>
+        call(h.server(), 'POST', `/invoices/${invoice.id}/payments`, { token: branch, body });
+      assert.equal((await pay({ amount: 10, method: 'card_on_file' })).status, 403);
+      assert.equal((await pay({ amount: 10, method: 'cash', status: 'failed', failure_reason: 'x' })).status, 403);
+      assert.equal((await pay({ amount: 149.51, method: 'cash' })).status, 403);
+      const after = await call(h.server(), 'GET', `/invoices/${invoice.id}`, { token: branch });
+      assert.equal(after.body.data.amount_paid, '0.00');
+    });
+
+    it('cannot touch another branch\u2019s invoice', async () => {
+      const world = h.world();
+      const contract = await makeContract(world.branches.halifax, world.users.halifaxOperator);
+      const corporate = await login(h.server(), world.emails.corporate);
+      const created = await call(h.server(), 'POST', '/invoices', {
+        token: corporate,
+        body: {
+          contract_id: contract.contract_id,
+          billing_period_start: '2027-01-01',
+          billing_period_end: '2027-01-31',
+          amount_due: 50,
+          due_date: '2027-01-15',
+          send: true,
+        },
+      });
+      assert.equal(created.status, 201, JSON.stringify(created.body));
+      const branch = await branchLogin();
+      const id = created.body.data.id as string;
+      assert.equal((await call(h.server(), 'POST', `/invoices/${id}/email`, { token: branch, body: {} })).status, 404);
+      const paid = await call(h.server(), 'POST', `/invoices/${id}/payments`, {
+        token: branch,
+        body: { amount: 50, method: 'cash' },
+      });
+      assert.equal(paid.status, 404);
+    });
   });
 });

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import {
   requireAuth,
   requireCorporate,
+  requireRole,
   resolveActor,
   resolveBranchScope,
 } from '../middleware/auth';
@@ -22,7 +23,7 @@ import { chargeInvoice, recordPayment } from '../services/payments';
 import { payLinkFor } from '../services/portal';
 import { INVOICE_STATUSES, PAYMENT_METHODS } from '../types/models';
 import { asyncHandler } from '../utils/async';
-import { unauthorized } from '../utils/errors';
+import { forbidden, unauthorized } from '../utils/errors';
 import { sendPdf } from '../utils/pdfResponse';
 import { paginationSchema } from '../utils/pagination';
 import { parse } from '../utils/validate';
@@ -186,7 +187,8 @@ const emailBodySchema = z.object({
  */
 invoicesRouter.post(
   '/:id/email',
-  requireCorporate,
+  // A branch resends its own customers' bills; the scope keeps it to them.
+  requireRole('corporate', 'branch'),
   asyncHandler(async (req, res) => {
     const { id } = parse(idParamSchema, req.params);
     const body = parse(emailBodySchema, req.body ?? {});
@@ -219,24 +221,40 @@ invoicesRouter.post(
   }),
 );
 
+/** What a branch may book by hand: money it took itself, outside the card processor. */
+const BRANCH_PAYMENT_METHODS: readonly string[] = ['etransfer', 'cheque', 'cash'];
+
 /**
  * Books money, or records that a charge failed. A failed card charge queues
  * the notice to the customer and flags the branch manager.
  *
- * Corporate only, like every other money move on an invoice: a "succeeded"
- * entry here marks a bill paid without any money having moved, so a crew or
- * branch sign-in able to make one could settle any customer's balance — or
- * pocket the cash and write it off. A rep's cash or cheque at the door goes
- * through POST /sales/contracts/:id/collected-payment, which takes exactly
- * the balance and nothing else.
+ * Corporate books anything. A branch sign-in books only what it collected
+ * itself — an e-Transfer, a cheque or cash, received in full or in part — on
+ * its own branch's invoices, and never more than is still owing: it cannot
+ * mark a card payment, record a failure, or settle a balance for more than
+ * the money that came in. Every entry carries who made it, so the books show
+ * which branch said it was paid. A rep's cash or cheque at the door still goes
+ * through POST /sales/contracts/:id/collected-payment.
  */
 invoicesRouter.post(
   '/:id/payments',
-  requireCorporate,
+  requireRole('corporate', 'branch'),
   asyncHandler(async (req, res) => {
     const { id } = parse(idParamSchema, req.params);
     const body = parse(paymentBodySchema, req.body);
     const scope = resolveBranchScope(req, branchOf(req));
+
+    if (req.user?.role === 'branch') {
+      if (!BRANCH_PAYMENT_METHODS.includes(body.method) || body.status !== 'succeeded') {
+        throw forbidden('A branch records e-Transfer, cheque or cash payments it has received');
+      }
+      // 404s outside the branch, before anything is compared.
+      const invoice = await getInvoice(id, scope);
+      const owing = Math.round((Number(invoice.amount_due) - Number(invoice.amount_paid)) * 100);
+      if (Math.round(body.amount * 100) > owing) {
+        throw forbidden('That is more than is still owing on this invoice');
+      }
+    }
 
     res.status(201).json({
       data: await recordPayment(id, scope, body, resolveActor(req)),

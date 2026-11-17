@@ -27,7 +27,7 @@ interface InvoiceDetailModel extends Invoice {
 
 export function InvoiceDetail(): JSX.Element {
   const { id = '' } = useParams();
-  const { isCorporate } = useAuth();
+  const { isCorporate, isBranch } = useAuth();
   const navigate = useNavigate();
 
   const { data, loading, error, reload } = useQuery(async () => {
@@ -131,7 +131,7 @@ export function InvoiceDetail(): JSX.Element {
             },
           ]}
         />
-        {/* Booking money by hand is corporate's, like refunds: the API refuses anyone else. */}
+        {/* Corporate books anything; a branch only what it took itself (below). Refunds stay corporate's. */}
         {payable && isCorporate ? (
           <Disclosure label="Record payment">
             <InlineForm
@@ -169,6 +169,36 @@ export function InvoiceDetail(): JSX.Element {
               onDone={reload}
             />
           </Disclosure>
+        ) : payable && isBranch ? (
+          owing > 0 ? (
+            // A branch books what it took itself, up to what is owing; the API holds it to that.
+            <Disclosure label="Record a payment">
+              <InlineForm
+                submitLabel="Record payment"
+                specs={[
+                  { name: 'amount', label: 'Amount received', type: 'number', step: '0.01', value: owing.toFixed(2) },
+                  {
+                    name: 'method',
+                    label: 'Paid by',
+                    type: 'select',
+                    options: [
+                      { value: 'etransfer', label: 'e-Transfer' },
+                      { value: 'cheque', label: 'Cheque' },
+                      { value: 'cash', label: 'Cash' },
+                    ],
+                  },
+                ]}
+                onSubmit={(values) =>
+                  api.post(`/invoices/${id}/payments`, {
+                    amount: Number(values.amount),
+                    method: values.method,
+                    status: 'succeeded',
+                  })
+                }
+                onDone={reload}
+              />
+            </Disclosure>
+          ) : null
         ) : payable ? null : (
           <p className="mt-3 text-sm text-muted-foreground">A {invoice.status} invoice takes no payment.</p>
         )}

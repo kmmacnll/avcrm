@@ -299,7 +299,8 @@ this repository:
   one under 10 characters; reset is off until `BRANCH_RESET_CODE` is set.
 - Changing the card processor under Settings asks for the admin's password
   again, since it decides whose account customers pay. Recording a payment by
-  hand is corporate only.
+  hand is corporate's, except that a branch sign-in may book an e-Transfer,
+  cheque or cash it received, on its own branch's invoices, up to what is owing.
 
 `npm run preflight` flags the same things in a `.env` before it is deployed.
 
@@ -450,8 +451,9 @@ A suspension is only lifted by corporate, never by the automatic refresh.
 | GET | `/invoices/:id` | any | Includes its payments |
 | GET | `/invoices/:id/payments` | any | |
 | POST | `/invoices/:id/send` | corporate | draft → sent, and queues the notice |
+| POST | `/invoices/:id/email` | corporate, branch | Emails the bill again (reminder if late, receipt if paid); `to` for another address |
 | POST | `/invoices/:id/void` | corporate | 409 if money has been taken |
-| POST | `/invoices/:id/payments` | any | Books money, or records a failed charge |
+| POST | `/invoices/:id/payments` | corporate, branch | Books money, or records a failed charge; a branch only e-Transfer, cheque or cash received, up to what is owing |
 | GET | `/payments` | any | `status`, `method`, `invoice_id` |
 | POST | `/payments/:id/refund` | corporate | Flips the payment; the invoice recomputes |
 | POST | `/invoices/:id/charge` | corporate | Charges the card on the contract, nobody present |

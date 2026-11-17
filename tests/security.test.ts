@@ -36,18 +36,11 @@ describe('who may say money arrived', () => {
 
   const cash = { amount: 109, method: 'cash', status: 'succeeded' };
 
-  it('refuses crew, reps and the branch sign-in, who could otherwise mark any bill paid', async () => {
+  it('refuses crew and reps, who could otherwise mark any bill paid', async () => {
     const invoice = await sentInvoice();
     const world = h.world();
-    const branch = await call(h.server(), 'POST', '/auth/sign-in', {
-      body: { choice: 'Kingston', password: '1234' },
-    });
 
-    for (const token of [
-      await login(h.server(), world.emails.operator),
-      await login(h.server(), world.emails.sales),
-      branch.body.data.token as string,
-    ]) {
+    for (const token of [await login(h.server(), world.emails.operator), await login(h.server(), world.emails.sales)]) {
       const reply = await call(h.server(), 'POST', `/invoices/${invoice}/payments`, { token, body: cash });
       assert.equal(reply.status, 403);
     }
@@ -55,6 +48,25 @@ describe('who may say money arrived', () => {
     const row = await db('invoices').where({ id: invoice }).first();
     assert.equal(row?.status, 'sent');
     assert.equal(Number(row?.amount_paid), 0);
+  });
+
+  it('lets the branch sign-in book money it took itself, and nothing else', async () => {
+    const invoice = await sentInvoice();
+    const branch = await call(h.server(), 'POST', '/auth/sign-in', {
+      body: { choice: 'Kingston', password: '1234' },
+    });
+    const token = branch.body.data.token as string;
+    const pay = (body: Record<string, unknown>) =>
+      call(h.server(), 'POST', `/invoices/${invoice}/payments`, { token, body });
+
+    assert.equal((await pay({ ...cash, method: 'card_on_file' })).status, 403);
+    assert.equal((await pay({ ...cash, method: 'online' })).status, 403);
+    assert.equal((await pay({ ...cash, amount: 500 })).status, 403);
+    assert.equal(Number((await db('invoices').where({ id: invoice }).first())?.amount_paid), 0);
+
+    const reply = await pay(cash);
+    assert.equal(reply.status, 201, JSON.stringify(reply.body));
+    assert.equal(reply.body.data.status, 'paid');
   });
 
   it('still lets corporate book a cheque', async () => {
