@@ -48,6 +48,7 @@ const ALL: UserRole[] = ['corporate', 'sales', 'operator', 'branch'];
 const SELLERS: UserRole[] = ['corporate', 'sales', 'branch'];
 const CREW: UserRole[] = ['corporate', 'operator', 'branch'];
 const CORPORATE: UserRole[] = ['corporate'];
+const BILLING: UserRole[] = ['corporate', 'branch'];
 /** Who has a Business Console: corporate for the company, each branch for itself. */
 const BUSINESS: UserRole[] = ['corporate', 'branch'];
 
@@ -83,7 +84,8 @@ const OPERATIONS_NAV: NavItem[] = [
   { to: '/customers', label: 'Customers', icon: Users, roles: SELLERS },
   { to: '/contracts', label: 'Contracts', icon: ClipboardCheck, roles: SELLERS },
   { to: '/work-orders', label: 'Dispatch', icon: Truck, roles: CREW },
-  { to: '/invoices', label: 'Invoices', icon: Receipt, roles: CORPORATE },
+  // A branch bills its own customers: it records what it took and resends bills.
+  { to: '/invoices', label: 'Invoices', icon: Receipt, roles: BILLING },
   { to: '/operators', label: 'Crew', icon: HardHat, roles: CREW },
   { to: '/snow-map', label: 'Snow Map', icon: Radar, roles: ALL },
   { to: '/weather', label: 'Weather Alerts', icon: CloudSnow, roles: CORPORATE },

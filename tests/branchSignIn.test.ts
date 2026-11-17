@@ -104,6 +104,26 @@ describe('signing in by branch', () => {
     assert.equal(unknown.status, 400);
   });
 
+  it('opens any branch with the ADMIN password, as that branch, and notes who', async () => {
+    // A branch with its own reset password, and one on the shared password.
+    await call(h.server(), 'POST', '/auth/sign-in/reset', {
+      body: { choice: 'Regina', new_password: 'carters-own-pw', reset_code: 'test-branch-reset-code' },
+    });
+    for (const choice of ['Regina', 'Kingston']) {
+      const reply = await signIn(choice, PASSWORD);
+      assert.equal(reply.status, 200, JSON.stringify(reply.body));
+      assert.equal(reply.body.data.user.role, 'branch', 'signed in as the branch, not as ADMIN');
+      assert.equal(reply.body.data.branch.name, choice);
+    }
+    // The branch's own password still works, and a wrong one is still refused.
+    assert.equal((await signIn('Regina', 'carters-own-pw')).status, 200);
+    assert.equal((await signIn('Regina', 'not-it')).status, 401);
+
+    const audits = await db('audit_log').where({ action: 'branch.signed_in_with_admin_password' });
+    assert.equal(audits.length, 2);
+    assert.ok(audits.every((a) => a.user_id === h.world().users.corporate));
+  });
+
   it('resets a branch password only with the reset code', async () => {
     const reset = (body: Record<string, string>) =>
       call(h.server(), 'POST', '/auth/sign-in/reset', { body });

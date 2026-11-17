@@ -345,7 +345,13 @@ export async function listInvoices(
       ])
       .limit(pagination.page_size)
       .offset(offsetOf(pagination))
-      .select('*'),
+      // Who the bill is for, so the list can be read without opening each one.
+      .select(
+        'invoices.*',
+        db.raw(
+          "(select concat_ws(' ', c.first_name, c.last_name) from customers c where c.id = invoices.customer_id) as customer_name",
+        ),
+      ),
     base.clone().count<{ count: string }[]>({ count: '*' }).first(),
   ]);
 

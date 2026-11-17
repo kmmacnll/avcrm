@@ -84,7 +84,8 @@ export function InvoiceDetail(): JSX.Element {
         {actionError ? <ErrorNotice message={actionError} /> : null}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <DownloadButton path={`/invoices/${id}/pdf`} fileName={`invoice-${id.slice(0, 8)}.pdf`} label="Download the invoice" />
-          {invoice.status !== 'void' && invoice.status !== 'paid' ? (
+          {/* Voiding is corporate's: the API refuses a branch. */}
+          {isCorporate && invoice.status !== 'void' && invoice.status !== 'paid' ? (
             <Button
               type="button"
               variant="destructive"

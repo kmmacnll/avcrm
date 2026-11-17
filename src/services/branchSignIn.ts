@@ -137,8 +137,8 @@ export function branchAccountEmail(branchName: string): string {
   return `${slug(branchName)}@branch.avcrm.local`;
 }
 
-async function adminSignIn(password: string, db: Knex): Promise<BranchSignInResult> {
-  refusePublishedPassword(password);
+/** The active corporate account this password belongs to, if any. */
+async function corporateWithPassword(password: string, db: Knex): Promise<User | null> {
   const admins = (await db('users')
     .where({ role: 'corporate' })
     .orderBy('created_at', 'asc')
@@ -147,9 +147,18 @@ async function adminSignIn(password: string, db: Knex): Promise<BranchSignInResu
   for (const admin of admins) {
     if (await verifyPassword(password, admin.password_hash)) {
       if (!admin.is_active) throw forbidden('This account has been deactivated');
-      const { password_hash: _ignored, ...user } = admin;
-      return { token: signToken(admin), user, branch: null };
+      return admin;
     }
+  }
+  return null;
+}
+
+async function adminSignIn(password: string, db: Knex): Promise<BranchSignInResult> {
+  refusePublishedPassword(password);
+  const admin = await corporateWithPassword(password, db);
+  if (admin) {
+    const { password_hash: _ignored, ...user } = admin;
+    return { token: signToken(admin), user, branch: null };
   }
   throw unauthorized('That password is not right for ADMIN');
 }
@@ -245,11 +254,37 @@ export async function signInByChoice(
     .whereRaw('lower(b.name) = lower(?)', [setup.name])
     .first('p.password_hash')) as { password_hash: string } | undefined;
   // A branch that has reset its password uses its own; the rest the shared one.
-  const ok = row
-    ? await verifyPassword(password, row.password_hash)
-    : sameSecret(password, branchPassword());
-  if (!ok) throw unauthorized(`That password is not right for ${setup.name}`);
-  return branchSignIn(setup, db);
+  // Neither has to be set for the master key below, so a switched-off shared
+  // password is only an error once the ADMIN password has not matched either.
+  let ok = false;
+  let switchedOff: unknown = null;
+  if (row) {
+    ok = await verifyPassword(password, row.password_hash);
+  } else {
+    try {
+      ok = sameSecret(password, branchPassword());
+    } catch (err) {
+      switchedOff = err;
+    }
+  }
+  if (ok) return branchSignIn(setup, db);
+
+  // The master key: the ADMIN password opens every branch, so the owner can
+  // see a branch exactly as it does without knowing its password. Audited,
+  // so the branch's history shows the owner was in.
+  refusePublishedPassword(password);
+  const admin = await corporateWithPassword(password, db);
+  if (admin) {
+    const result = await branchSignIn(setup, db);
+    await recordAudit(
+      { user_id: admin.id, ip_address: null },
+      { action: 'branch.signed_in_with_admin_password', entity_type: 'branch', entity_id: result.branch!.id },
+      db,
+    );
+    return result;
+  }
+  if (switchedOff) throw switchedOff;
+  throw unauthorized(`That password is not right for ${setup.name}`);
 }
 
 /**

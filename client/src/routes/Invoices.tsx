@@ -75,12 +75,16 @@ export function Invoices(): JSX.Element {
         emptyMessage="No invoices match those filters."
         columns={[
           {
-            header: 'Period',
+            header: 'Customer',
             cell: (row) => (
               <Link className="text-primary hover:underline" to={`/invoices/${row.id}`}>
-                {date(row.billing_period_start)} – {date(row.billing_period_end)}
+                {(row as Invoice & { customer_name?: string }).customer_name || 'Customer'}
               </Link>
             ),
+          },
+          {
+            header: 'Period',
+            cell: (row) => `${date(row.billing_period_start)} – ${date(row.billing_period_end)}`,
           },
           { header: 'Due', cell: (row) => date(row.due_date) },
           { header: 'Amount', numeric: true, cell: (row) => money(row.amount_due) },
